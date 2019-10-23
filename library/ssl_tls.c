@@ -4845,6 +4845,8 @@ void mbedtls_ssl_update_handshake_status( mbedtls_ssl_context *ssl )
 #if defined(MBEDTLS_SSL_DTLS_ANTI_REPLAY)
 static void ssl_dtls_replay_reset( mbedtls_ssl_context *ssl )
 {
+
+    MBEDTLS_SSL_DEBUG_MSG( 1, ( "ssl_dtls_replay_reset() " ) );
     ssl->in_window_top = 0;
     ssl->in_window = 0;
 }
@@ -4867,6 +4869,8 @@ int mbedtls_ssl_dtls_replay_check( mbedtls_ssl_context const *ssl )
     uint64_t rec_seqnum = ssl_load_six_bytes( ssl->in_ctr + 2 );
     uint64_t bit;
 
+    MBEDTLS_SSL_DEBUG_MSG( 1, ( "mbedtls_ssl_dtls_replay_check rec_seqnum = %lld, window_top = %lld in_window = %lld", rec_seqnum, ssl->in_window_top, ssl->in_window ) );
+
     if( ssl->conf->anti_replay == MBEDTLS_SSL_ANTI_REPLAY_DISABLED )
         return( 0 );
 
@@ -4875,11 +4879,17 @@ int mbedtls_ssl_dtls_replay_check( mbedtls_ssl_context const *ssl )
 
     bit = ssl->in_window_top - rec_seqnum;
 
-    if( bit >= 64 )
-        return( -1 );
+    MBEDTLS_SSL_DEBUG_MSG( 1, ( "bit = %lld", bit ) );
 
-    if( ( ssl->in_window & ( (uint64_t) 1 << bit ) ) != 0 )
+    if( bit >= 64 ) {
+        MBEDTLS_SSL_DEBUG_MSG( 1, ( "bit >= 64" ) );
         return( -1 );
+    }
+
+    if( ( ssl->in_window & ( (uint64_t) 1 << bit ) ) != 0 ) {
+        MBEDTLS_SSL_DEBUG_MSG( 1, ( " ret -1 because of %d", ( ssl->in_window & ( (uint64_t) 1 << bit ) ) ) );
+        return( -1 );
+    }
 
     return( 0 );
 }
@@ -4893,6 +4903,8 @@ void mbedtls_ssl_dtls_replay_update( mbedtls_ssl_context *ssl )
 
     if( ssl->conf->anti_replay == MBEDTLS_SSL_ANTI_REPLAY_DISABLED )
         return;
+
+    MBEDTLS_SSL_DEBUG_MSG( 1, ( "mbedtls_ssl_dtls_replay_update rec_seqnum = %lld, window_top = %lld", rec_seqnum, ssl->in_window_top ) );
 
     if( rec_seqnum > ssl->in_window_top )
     {
@@ -4917,6 +4929,9 @@ void mbedtls_ssl_dtls_replay_update( mbedtls_ssl_context *ssl )
         if( bit < 64 ) /* Always true, but be extra sure */
             ssl->in_window |= (uint64_t) 1 << bit;
     }
+
+    MBEDTLS_SSL_DEBUG_MSG( 1, ( "mbedtls_ssl_dtls_replay_update window_top = %lld", ssl->in_window_top ) );
+    MBEDTLS_SSL_DEBUG_MSG( 1, ( "mbedtls_ssl_dtls_replay_update in_window = %lld", ssl->in_window ) );
 }
 #endif /* MBEDTLS_SSL_DTLS_ANTI_REPLAY */
 
@@ -5285,8 +5300,10 @@ static int ssl_parse_record_header( mbedtls_ssl_context const *ssl,
     if( ssl->conf->transport == MBEDTLS_SSL_TRANSPORT_DATAGRAM )
     {
         /* Copy explicit record sequence number from input buffer. */
+        /* AWH print ctr */
         memcpy( &rec->ctr[0], buf + rec_hdr_ctr_offset,
                 rec_hdr_ctr_len );
+        MBEDTLS_SSL_DEBUG_BUF( 4, "rec->ctr ", rec->ctr, rec_hdr_ctr_len );
     }
     else
 #endif /* MBEDTLS_SSL_PROTO_DTLS */
@@ -5302,6 +5319,7 @@ static int ssl_parse_record_header( mbedtls_ssl_context const *ssl,
     rec->data_offset = rec_hdr_len_offset + rec_hdr_len_len;
     rec->data_len    = ( (size_t) buf[ rec_hdr_len_offset + 0 ] << 8 ) |
                        ( (size_t) buf[ rec_hdr_len_offset + 1 ] << 0 );
+
     MBEDTLS_SSL_DEBUG_BUF( 4, "input record header", buf, rec->data_offset );
 
     MBEDTLS_SSL_DEBUG_MSG( 3, ( "input record: msgtype = %d, "
@@ -8643,6 +8661,8 @@ static int ssl_session_reset_int( mbedtls_ssl_context *ssl, int partial )
 {
     int ret;
 
+    MBEDTLS_SSL_DEBUG_MSG( 1, ( "ssl_session_reset_int()" ) );
+
 #if !defined(MBEDTLS_SSL_DTLS_CLIENT_PORT_REUSE) ||     \
     !defined(MBEDTLS_SSL_SRV_C)
     ((void) partial);
@@ -11594,8 +11614,12 @@ int mbedtls_ssl_context_save( mbedtls_ssl_context *ssl,
 
 #if defined(MBEDTLS_SSL_DTLS_ANTI_REPLAY)
     used += 16;
+
+
     if( used <= buf_len )
     {
+        MBEDTLS_SSL_DEBUG_MSG( 1, ( "mbedtls_ssl_context_save window_top = %lld", ssl->in_window_top ) );
+        MBEDTLS_SSL_DEBUG_MSG( 1, ( "mbedtls_ssl_context_save in_window = %lld", ssl->in_window ) );
         *p++ = (unsigned char)( ( ssl->in_window_top >> 56 ) & 0xFF );
         *p++ = (unsigned char)( ( ssl->in_window_top >> 48 ) & 0xFF );
         *p++ = (unsigned char)( ( ssl->in_window_top >> 40 ) & 0xFF );
@@ -11882,6 +11906,9 @@ static int ssl_context_load( mbedtls_ssl_context *ssl,
                      ( (uint64_t) p[5] << 16 ) |
                      ( (uint64_t) p[6] <<  8 ) |
                      ( (uint64_t) p[7]       );
+
+    MBEDTLS_SSL_DEBUG_MSG( 1, ( "ssl_context_load window_top = %lld", ssl->in_window_top ) );
+    MBEDTLS_SSL_DEBUG_MSG( 1, ( "ssl_context_load in_window = %lld", ssl->in_window ) );
     p += 8;
 #endif /* MBEDTLS_SSL_DTLS_ANTI_REPLAY */
 
