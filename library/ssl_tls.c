@@ -116,13 +116,17 @@ static int ssl_parse_record_header( mbedtls_ssl_context const *ssl,
                                     mbedtls_record *rec );
 
 int mbedtls_ssl_check_record( mbedtls_ssl_context const *ssl,
-                              unsigned char *buf,
+                              unsigned char *buf_org,
                               size_t buflen )
 {
     int ret = 0;
     mbedtls_record rec;
     MBEDTLS_SSL_DEBUG_MSG( 1, ( "=> mbedtls_ssl_check_record" ) );
-    MBEDTLS_SSL_DEBUG_BUF( 3, "record buffer", buf, buflen );
+    MBEDTLS_SSL_DEBUG_BUF( 3, "record buffer", buf_org, buflen );
+
+    unsigned char buf[buflen];
+    memcpy(buf, buf_org, buflen);
+
 
     /* We don't support record checking in TLS because
      * (a) there doesn't seem to be a usecase for it, and
