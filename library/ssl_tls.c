@@ -3661,6 +3661,7 @@ int mbedtls_ssl_fetch_input( mbedtls_ssl_context *ssl, size_t nb_want )
             }
 
             ssl->next_record_offset = 0;
+            MBEDTLS_SSL_DEBUG_MSG( 1, ( "mbedtls_ssl_fetch_input() ssl->in_hdr: rec_seqnum = %lld", ssl_load_six_bytes( ssl->in_ctr + 2 ) ) );
             MBEDTLS_SSL_DEBUG_MSG( 2, ( "ssl->in_left = %d, ssl->next_record_offset = %d", ssl->in_left, ssl->next_record_offset) );
         }
 
@@ -3874,6 +3875,8 @@ int mbedtls_ssl_flush_output( mbedtls_ssl_context *ssl )
         ssl->out_hdr = ssl->out_buf + 8;
     }
     ssl_update_out_pointers( ssl, ssl->transform_out );
+
+    MBEDTLS_SSL_DEBUG_MSG( 1, ( "flush_output()  ssl->in_hdr: rec_seqnum = %lld", ssl_load_six_bytes( ssl->in_ctr + 2 ) ) );
 
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "<= flush output" ) );
 
@@ -5320,6 +5323,7 @@ static int ssl_parse_record_header( mbedtls_ssl_context const *ssl,
         memcpy( &rec->ctr[0], buf + rec_hdr_ctr_offset,
                 rec_hdr_ctr_len );
         MBEDTLS_SSL_DEBUG_BUF( 3, "CTR:", rec->ctr, rec_hdr_ctr_len );
+        MBEDTLS_SSL_DEBUG_MSG( 1, ( "rec_seqnum = %lld", ssl_load_six_bytes( ssl->in_ctr + 2 ) ) );
     }
     else
 #endif /* MBEDTLS_SSL_PROTO_DTLS */
@@ -5616,6 +5620,7 @@ int mbedtls_ssl_read_record( mbedtls_ssl_context *ssl,
     int ret;
 
     MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> read record" ) );
+    MBEDTLS_SSL_DEBUG_MSG( 1, ( "mbedtls_ssl_read_record()  ssl->in_hdr: rec_seqnum = %lld", ssl_load_six_bytes( ssl->in_ctr + 2 ) ) );
 
     if( ssl->keep_current_message == 0 )
     {
@@ -6197,6 +6202,7 @@ static int ssl_load_buffered_record( mbedtls_ssl_context *ssl )
     }
 
     memcpy( ssl->in_hdr, rec, rec_len );
+    MBEDTLS_SSL_DEBUG_MSG( 1, ( "Update ssl->in_hdr: rec_seqnum = %lld", ssl_load_six_bytes( ssl->in_ctr + 2 ) ) );
     ssl->in_left = rec_len;
     ssl->next_record_offset = 0;
 
@@ -6268,6 +6274,8 @@ static int ssl_get_next_record( mbedtls_ssl_context *ssl )
     mbedtls_record rec;
 
     MBEDTLS_SSL_DEBUG_MSG( 1, ( "ssl_get_next_record() " ) );
+
+    MBEDTLS_SSL_DEBUG_MSG( 1, ( "ssl_get_next_record() ssl->in_hdr: rec_seqnum = %lld", ssl_load_six_bytes( ssl->in_ctr + 2 ) ) );
 
 #if defined(MBEDTLS_SSL_PROTO_DTLS)
     /* We might have buffered a future record; if so,
@@ -8548,6 +8556,8 @@ static void ssl_update_in_pointers( mbedtls_ssl_context *ssl )
      * record plaintext.
      */
 
+    MBEDTLS_SSL_DEBUG_MSG( 1, ( "ssl_update_in_pointers() " ) );
+
 #if defined(MBEDTLS_SSL_PROTO_DTLS)
     if( ssl->conf->transport == MBEDTLS_SSL_TRANSPORT_DATAGRAM )
     {
@@ -8574,6 +8584,9 @@ static void ssl_update_in_pointers( mbedtls_ssl_context *ssl )
 #endif
         ssl->in_iv  = ssl->in_hdr + 5;
     }
+
+    MBEDTLS_SSL_DEBUG_MSG( 1, ( "ssl->in_ctr() = %x ", ssl->in_ctr ) );
+    MBEDTLS_SSL_DEBUG_MSG( 1, ( "rec_seqnum = %lld", ssl_load_six_bytes( ssl->in_ctr + 2 ) ) );
 
     /* This will be adjusted at record decryption time. */
     ssl->in_msg = ssl->in_iv;
@@ -8606,6 +8619,8 @@ static void ssl_reset_in_out_pointers( mbedtls_ssl_context *ssl )
         ssl->out_hdr = ssl->out_buf + 8;
         ssl->in_hdr  = ssl->in_buf  + 8;
     }
+
+    MBEDTLS_SSL_DEBUG_MSG( 1, ( "ssl_reset_in_out_pointers() ssl->in_hdr: rec_seqnum = %lld", ssl_load_six_bytes( ssl->in_ctr + 2 ) ) );
 
     /* Derive other internal pointers. */
     ssl_update_out_pointers( ssl, NULL /* no transform enabled */ );
