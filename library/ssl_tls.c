@@ -125,10 +125,14 @@ int mbedtls_ssl_check_record( mbedtls_ssl_context const *ssl,
     MBEDTLS_SSL_DEBUG_MSG( 1, ( "=> mbedtls_ssl_check_record" ) );
     MBEDTLS_SSL_DEBUG_BUF( 3, "record buffer", buf_org, buflen );
 
+#ifdef AWH
     buf = mbedtls_calloc( 1, buflen );
     if (buf == NULL) {
         return( MBEDTLS_ERR_SSL_ALLOC_FAILED );
     }
+#else
+    buf = buf_org;
+#endif
 
     memcpy(buf, buf_org, buflen);
 
@@ -4898,7 +4902,7 @@ int mbedtls_ssl_dtls_replay_check( mbedtls_ssl_context const *ssl )
     }
 
     if( ( ssl->in_window & ( (uint64_t) 1 << bit ) ) != 0 ) {
-        MBEDTLS_SSL_DEBUG_MSG( 1, ( " ret -1 because of %d", ( ssl->in_window & ( (uint64_t) 1 << bit ) ) ) );
+        MBEDTLS_SSL_DEBUG_MSG( 1, ( " return -1 because of %d", ( ssl->in_window & ( (uint64_t) 1 << bit ) ) ) );
         return( -1 );
     }
 
@@ -4915,7 +4919,7 @@ void mbedtls_ssl_dtls_replay_update( mbedtls_ssl_context *ssl )
     if( ssl->conf->anti_replay == MBEDTLS_SSL_ANTI_REPLAY_DISABLED )
         return;
 
-    MBEDTLS_SSL_DEBUG_MSG( 1, ( "mbedtls_ssl_dtls_replay_update rec_seqnum = %lld, window_top = %lld", rec_seqnum, ssl->in_window_top ) );
+    MBEDTLS_SSL_DEBUG_MSG( 1, ( ">>mbedtls_ssl_dtls_replay_update rec_seqnum = %lld, window_top = %lld", rec_seqnum, ssl->in_window_top ) );
 
     if( rec_seqnum > ssl->in_window_top )
     {
@@ -4941,8 +4945,7 @@ void mbedtls_ssl_dtls_replay_update( mbedtls_ssl_context *ssl )
             ssl->in_window |= (uint64_t) 1 << bit;
     }
 
-    MBEDTLS_SSL_DEBUG_MSG( 1, ( "mbedtls_ssl_dtls_replay_update window_top = %lld", ssl->in_window_top ) );
-    MBEDTLS_SSL_DEBUG_MSG( 1, ( "mbedtls_ssl_dtls_replay_update in_window = %lld", ssl->in_window ) );
+    MBEDTLS_SSL_DEBUG_MSG( 1, ( "<<mbedtls_ssl_dtls_replay_update window_top = %lld, in_window = %lld", ssl->in_window_top, ssl->in_window ) );
 }
 #endif /* MBEDTLS_SSL_DTLS_ANTI_REPLAY */
 
