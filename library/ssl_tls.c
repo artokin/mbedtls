@@ -120,11 +120,16 @@ int mbedtls_ssl_check_record( mbedtls_ssl_context const *ssl,
                               size_t buflen )
 {
     int ret = 0;
+    unsigned char *buf;
     mbedtls_record rec;
     MBEDTLS_SSL_DEBUG_MSG( 1, ( "=> mbedtls_ssl_check_record" ) );
     MBEDTLS_SSL_DEBUG_BUF( 3, "record buffer", buf_org, buflen );
 
-    unsigned char buf[buflen];
+    buf = mbedtls_calloc( 1, buflen );
+    if (buf == NULL) {
+        return( MBEDTLS_ERR_SSL_ALLOC_FAILED );
+    }
+
     memcpy(buf, buf_org, buflen);
 
 
@@ -174,6 +179,8 @@ exit:
     }
 
     MBEDTLS_SSL_DEBUG_MSG( 1, ( "<= mbedtls_ssl_check_record" ) );
+
+    mbedtls_free( buf );
     return( ret );
 }
 #endif /* MBEDTLS_SSL_RECORD_CHECKING */
@@ -5307,7 +5314,6 @@ static int ssl_parse_record_header( mbedtls_ssl_context const *ssl,
         /* AWH print ctr */
         memcpy( &rec->ctr[0], buf + rec_hdr_ctr_offset,
                 rec_hdr_ctr_len );
-        MBEDTLS_SSL_DEBUG_BUF( 4, "rec->ctr ", rec->ctr, rec_hdr_ctr_len );
     }
     else
 #endif /* MBEDTLS_SSL_PROTO_DTLS */
