@@ -3648,6 +3648,7 @@ int mbedtls_ssl_fetch_input( mbedtls_ssl_context *ssl, size_t nb_want )
                 return( MBEDTLS_ERR_SSL_INTERNAL_ERROR );
             }
 
+            MBEDTLS_SSL_DEBUG_MSG( 2, ( "ssl->in_left = %d, ssl->next_record_offset = %d", ssl->in_left, ssl->next_record_offset) );
             ssl->in_left -= ssl->next_record_offset;
 
             if( ssl->in_left != 0 )
@@ -3660,6 +3661,7 @@ int mbedtls_ssl_fetch_input( mbedtls_ssl_context *ssl, size_t nb_want )
             }
 
             ssl->next_record_offset = 0;
+            MBEDTLS_SSL_DEBUG_MSG( 2, ( "ssl->in_left = %d, ssl->next_record_offset = %d", ssl->in_left, ssl->next_record_offset) );
         }
 
         MBEDTLS_SSL_DEBUG_MSG( 2, ( "in_left: %d, nb_want: %d",
@@ -5317,6 +5319,7 @@ static int ssl_parse_record_header( mbedtls_ssl_context const *ssl,
         /* AWH print ctr */
         memcpy( &rec->ctr[0], buf + rec_hdr_ctr_offset,
                 rec_hdr_ctr_len );
+        MBEDTLS_SSL_DEBUG_BUF( 3, "CTR:", rec->ctr, rec_hdr_ctr_len );
     }
     else
 #endif /* MBEDTLS_SSL_PROTO_DTLS */
@@ -5333,7 +5336,7 @@ static int ssl_parse_record_header( mbedtls_ssl_context const *ssl,
     rec->data_len    = ( (size_t) buf[ rec_hdr_len_offset + 0 ] << 8 ) |
                        ( (size_t) buf[ rec_hdr_len_offset + 1 ] << 0 );
 
-    MBEDTLS_SSL_DEBUG_BUF( 4, "input record header", buf, rec->data_offset );
+    MBEDTLS_SSL_DEBUG_BUF( 3, "input record header", buf, rec->data_offset );
 
     MBEDTLS_SSL_DEBUG_MSG( 3, ( "input record: msgtype = %d, "
                                 "version = [%d:%d], msglen = %d",
@@ -6059,6 +6062,7 @@ static int ssl_consume_current_message( mbedtls_ssl_context *ssl )
     /* Case (1): Handshake messages */
     if( ssl->in_hslen != 0 )
     {
+        MBEDTLS_SSL_DEBUG_MSG( 1, ( "ssl_consume_current_message1" ) );
         /* Hard assertion to be sure that no application data
          * is in flight, as corrupting ssl->in_msglen during
          * ssl->in_offt != NULL is fatal. */
@@ -6100,19 +6104,23 @@ static int ssl_consume_current_message( mbedtls_ssl_context *ssl )
         }
         else
         {
+            MBEDTLS_SSL_DEBUG_MSG( 1, ( "ssl_consume_current_message2" ) );
             ssl->in_msglen = 0;
         }
 
+        MBEDTLS_SSL_DEBUG_MSG( 1, ( "ssl_consume_current_message3" ) );
         ssl->in_hslen   = 0;
     }
     /* Case (4): Application data */
     else if( ssl->in_offt != NULL )
     {
+        MBEDTLS_SSL_DEBUG_MSG( 1, ( "ssl_consume_current_message4" ) );
         return( 0 );
     }
     /* Everything else (CCS & Alerts) */
     else
     {
+        MBEDTLS_SSL_DEBUG_MSG( 1, ( "ssl_consume_current_message5" ) );
         ssl->in_msglen = 0;
     }
 
@@ -6258,6 +6266,8 @@ static int ssl_get_next_record( mbedtls_ssl_context *ssl )
 {
     int ret;
     mbedtls_record rec;
+
+    MBEDTLS_SSL_DEBUG_MSG( 1, ( "ssl_get_next_record() " ) );
 
 #if defined(MBEDTLS_SSL_PROTO_DTLS)
     /* We might have buffered a future record; if so,
