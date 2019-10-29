@@ -75,6 +75,16 @@ static inline size_t ssl_ep_len( const mbedtls_ssl_context *ssl )
     return( 0 );
 }
 
+static inline uint64_t ssl_load_six_bytes( unsigned char *buf )
+{
+    return( ( (uint64_t) buf[0] << 40 ) |
+            ( (uint64_t) buf[1] << 32 ) |
+            ( (uint64_t) buf[2] << 24 ) |
+            ( (uint64_t) buf[3] << 16 ) |
+            ( (uint64_t) buf[4] <<  8 ) |
+            ( (uint64_t) buf[5]       ) );
+}
+
 /*
  * Start a timer.
  * Passing millisecs = 0 cancels a running timer.
@@ -3661,7 +3671,7 @@ int mbedtls_ssl_fetch_input( mbedtls_ssl_context *ssl, size_t nb_want )
             }
 
             ssl->next_record_offset = 0;
-            MBEDTLS_SSL_DEBUG_MSG( 1, ( "mbedtls_ssl_fetch_input() ssl->in_hdr: rec_seqnum = %lld", ssl_load_six_bytes( ssl->in_ctr + 2 ) ) );
+            MBEDTLS_SSL_DEBUG_MSG( 1, ( "mbedtls_ssl_fetch_input()1 rec_seqnum = %lld", ssl_load_six_bytes( ssl->in_ctr + 2 ) ) );
             MBEDTLS_SSL_DEBUG_MSG( 2, ( "ssl->in_left = %d, ssl->next_record_offset = %d", ssl->in_left, ssl->next_record_offset) );
         }
 
@@ -3709,9 +3719,12 @@ int mbedtls_ssl_fetch_input( mbedtls_ssl_context *ssl, size_t nb_want )
 
             MBEDTLS_SSL_DEBUG_MSG( 3, ( "f_recv_timeout: %u ms", timeout ) );
 
-            if( ssl->f_recv_timeout != NULL )
+            if( ssl->f_recv_timeout != NULL ) {
+                MBEDTLS_SSL_DEBUG_MSG( 1, ( "mbedtls_ssl_fetch_input()2 rec_seqnum = %lld", ssl_load_six_bytes( ssl->in_ctr + 2 ) ) );
                 ret = ssl->f_recv_timeout( ssl->p_bio, ssl->in_hdr, len,
                                                                     timeout );
+                MBEDTLS_SSL_DEBUG_MSG( 1, ( "mbedtls_ssl_fetch_input()3 rec_seqnum = %lld", ssl_load_six_bytes( ssl->in_ctr + 2 ) ) );
+            }
             else
                 ret = ssl->f_recv( ssl->p_bio, ssl->in_hdr, len );
 
@@ -4871,14 +4884,20 @@ static void ssl_dtls_replay_reset( mbedtls_ssl_context *ssl )
     ssl->in_window = 0;
 }
 
-static inline uint64_t ssl_load_six_bytes( unsigned char *buf )
+
+static int mbedtls_ssl_dtls_replay_record_check( mbedtls_ssl_context *ssl, uint8_t *record_in_ctr )
 {
-    return( ( (uint64_t) buf[0] << 40 ) |
-            ( (uint64_t) buf[1] << 32 ) |
-            ( (uint64_t) buf[2] << 24 ) |
-            ( (uint64_t) buf[3] << 16 ) |
-            ( (uint64_t) buf[4] <<  8 ) |
-            ( (uint64_t) buf[5]       ) );
+
+    int ret;
+    unsigned char *original_in_ctr = ssl->in_ctr;
+
+    ssl->in_ctr = record_in_ctr;
+
+    ret = mbedtls_ssl_dtls_replay_check(ssl);
+
+    ssl->in_ctr = original_in_ctr;
+
+    return ret;
 }
 
 /*
@@ -5402,7 +5421,7 @@ static int ssl_parse_record_header( mbedtls_ssl_context const *ssl,
 #if defined(MBEDTLS_SSL_DTLS_ANTI_REPLAY)
         /* For records from the correct epoch, check whether their
          * sequence number has been seen before. */
-        else if( mbedtls_ssl_dtls_replay_check( ssl ) != 0 )
+        else if( mbedtls_ssl_dtls_replay_record_check( ssl, &rec->ctr[0] ) != 0 )
         {
             MBEDTLS_SSL_DEBUG_MSG( 1, ( "replayed record" ) );
             return( MBEDTLS_ERR_SSL_UNEXPECTED_RECORD );
@@ -8619,8 +8638,6 @@ static void ssl_reset_in_out_pointers( mbedtls_ssl_context *ssl )
         ssl->out_hdr = ssl->out_buf + 8;
         ssl->in_hdr  = ssl->in_buf  + 8;
     }
-
-    MBEDTLS_SSL_DEBUG_MSG( 1, ( "ssl_reset_in_out_pointers() ssl->in_hdr: rec_seqnum = %lld", ssl_load_six_bytes( ssl->in_ctr + 2 ) ) );
 
     /* Derive other internal pointers. */
     ssl_update_out_pointers( ssl, NULL /* no transform enabled */ );
