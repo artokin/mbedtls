@@ -239,11 +239,25 @@ int mbedtls_platform_memcmp( const void *buf1, const void *buf2, size_t num );
 uint32_t mbedtls_platform_random_in_range( size_t num );
 
 /**
- * \brief       This function does nothing, but can be inserted between
- *              successive reads to a volatile local variable to prevent
- *              compilers from optimizing them away.
+ * \brief       Random delay function.
+ *
+ *              Function implements a random delay by incrementing a local
+ *              variable randomized number of times (busy-looping).
+ *
+ *              Duration of the delay is random as number of variable increments
+ *              is randomized.
+ *
+ * \note        Currently the function is dependent of hardware providing an
+ *              rng with MBEDTLS_ENTROPY_HARDWARE_ALT.
+ *
+ * \param num   Max-value for the number of local variable increments, must be
+ *              less than INT_MAX. Total number of variable increment will be
+ *              randomized between 1 and num.
+ *
+ * \return      In success number of increments made.
+ * \return      Negative value in case of errors.
  */
-void mbedtls_platform_enforce_volatile_reads( void );
+int mbedtls_platform_random_delay( size_t num );
 
 #if defined(MBEDTLS_HAVE_TIME_DATE)
 /**
